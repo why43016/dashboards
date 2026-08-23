@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MACROSCOPE — Global Macro Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+  :root {
+    --paper: #f2efeb;
+    --paper-2: #eae6df;
+    --ink: #0b0b0b;
+    --ink-60: rgba(11,11,11,.60);
+    --ink-35: rgba(11,11,11,.35);
+    --hairline: #d8d2c6;
+    --hairline-strong: rgba(11,11,11,.22);
+    --green: #0e7a34;
+    --red: #c2232f;
+    --ochre: #a86a08;
+    --term-green: #00ff41;
+    --rail-w: 264px;
+    --panel-w: 340px;
+    --header-h: 52px;
+    --ticker-h: 34px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Archivo', -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--ink); color: var(--paper); }
+  .mono { font-family: 'JetBrains Mono', Menlo, Consolas, monospace; font-feature-settings: "tnum"; }
+  .label {
+    font-family: 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-60);
+  }
+
+  /* ---------- scrollbars ---------- */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--hairline-strong); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-60); }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    height: var(--header-h);
+    display: flex; align-items: stretch;
+    background: var(--paper);
+    border-bottom: 1px solid var(--ink);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 20px;
+    border-right: 1px solid var(--hairline-strong);
+  }
+  .brand .wordmark {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 15px; letter-spacing: .06em;
+  }
+  .sibling { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-35); text-decoration:none; margin-left:14px; }
+  .sibling:hover { color:var(--ink); }
+  .brand .issue { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-35); letter-spacing: .12em; }
+  .head-meta {
+    flex: 1;
+    display: flex; align-items: center; justify-content: flex-end; gap: 22px;
+    padding: 0 20px;
+  }
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-60);
+  }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .35; transform: scale(.8);} }
+  .head-meta .src { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .1em; color: var(--ink-35); text-transform: uppercase; }
+
+  /* ---------- ticker ---------- */
+  .ticker {
+    position: sticky; top: var(--header-h); z-index: 49;
+    height: var(--ticker-h);
+    background: var(--ink);
+    color: var(--term-green);
+    overflow: hidden;
+    display: flex; align-items: center;
+    border-bottom: 1px solid var(--ink);
+  }
+  .ticker-track {
+    display: flex; white-space: nowrap;
+    animation: tick 60s linear infinite;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .04em;
+    will-change: transform;
+  }
+  .ticker:hover .ticker-track { animation-play-state: paused; }
+  .ticker-track span { padding: 0 28px; position: relative; }
+  .ticker-track span::after { content: "·"; position: absolute; right: -4px; opacity: .35; }
+  .ticker .up { color: var(--term-green); }
+  .ticker .dn { color: #ff5d63; }
+  @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* ---------- layout ---------- */
+  .shell {
+    display: grid;
+    grid-template-columns: var(--rail-w) 1fr var(--panel-w);
+    gap: 0;
+    align-items: start;
+  }
+  .rail {
+    border-right: 1px solid var(--hairline-strong);
+    padding: 22px 20px 40px;
+    position: sticky;
+    top: calc(var(--header-h) + var(--ticker-h));
+    max-height: calc(100vh - var(--header-h) - var(--ticker-h));
+    overflow-y: auto;
+  }
+  .panel {
+    border-left: 1px solid var(--hairline-strong);
+    padding: 22px 20px 40px;
+    position: sticky;
+    top: calc(var(--header-h) + var(--ticker-h));
+    max-height: calc(100vh - var(--header-h) - var(--ticker-h));
+    overflow-y: auto;
+  }
+  .main { padding: 26px 28px 48px; min-width: 0; }
+
+  /* ---------- control nodes ---------- */
+  .ctl-group { margin-bottom: 30px; }
+  .ctl-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 8px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .ctl-actions { display: flex; gap: 10px; }
+  .ctl-actions button {
+    background: none; border: none; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-35); padding: 2px 0;
+    transition: color .15s ease;
+  }
+  .ctl-actions button:hover { color: var(--ink); }
+  .node {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 4px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--hairline);
+    transition: background .12s ease;
+  }
+  .node:hover { background: var(--paper-2); }
+  .node .ring {
+    width: 13px; height: 13px; flex: none;
+    border: 1px solid var(--ink-60);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    transition: border-color .15s ease;
+  }
+  .node .ring::after {
+    content: ""; width: 5px; height: 5px; border-radius: 50%;
+    background: transparent;
+    transition: background .15s ease;
+  }
+  .node.on .ring { border-color: var(--ink); }
+  .node.on .ring::after { background: var(--ink); }
+  .node .nm { font-size: 13px; flex: 1; }
+  .node .cd { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-35); letter-spacing: .06em; }
+  .node .sw { width: 9px; height: 9px; flex: none; }
+
+  /* collapsible */
+  details { border-top: 1px solid var(--hairline-strong); padding-top: 14px; margin-top: 6px; }
+  summary {
+    cursor: pointer; list-style: none;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-60);
+    display: flex; justify-content: space-between;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; }
+  details[open] summary::after { content: "–"; }
+  details p { font-size: 12px; color: var(--ink-60); margin-top: 10px; line-height: 1.6; }
+
+  /* ---------- main figure ---------- */
+  .fig-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .fig-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+  .fig-title b { font-weight: 700; }
+  .fig-sub { font-size: 13px; color: var(--ink-60); margin-bottom: 16px; }
+  #chart { width: 100%; height: 430px; border-top: 1px solid var(--ink); }
+
+  /* ---------- KPI strip ---------- */
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--ink);
+    border-top: none;
+    margin-bottom: 34px;
+  }
+  .kpi {
+    padding: 16px 18px 14px;
+    border-right: 1px solid var(--hairline-strong);
+    min-width: 0;
+  }
+  .kpi:last-child { border-right: none; }
+  .kpi .k-label { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .kpi .k-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px; font-weight: 500; letter-spacing: -.02em;
+    font-feature-settings: "tnum";
+    line-height: 1.05;
+    white-space: nowrap;
+  }
+  .kpi .k-delta { font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 6px; }
+  .kpi .pos { color: var(--green); }
+  .kpi .neg { color: var(--red); }
+  .kpi .k-country { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-35); letter-spacing: .14em; text-transform: uppercase; }
+
+  /* ---------- rankings ---------- */
+  .rank-list { border-top: 1px solid var(--ink); }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    align-items: center; gap: 10px;
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--hairline);
+    cursor: pointer;
+    transition: background .12s ease;
+  }
+  .rank-row:hover { background: var(--paper-2); }
+  .rank-row.focus { background: var(--ink); color: var(--paper); }
+  .rank-row.focus .label, .rank-row.focus .mono { color: var(--paper); }
+  .rank-row .idx { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-35); }
+  .rank-row.focus .idx { color: rgba(242,239,235,.5); }
+  .rank-row .bar-wrap { grid-column: 1 / -1; height: 4px; background: var(--hairline); margin-top: 2px; }
+  .rank-row .bar { height: 100%; background: var(--ink); transition: width .4s cubic-bezier(.22,1,.36,1); }
+  .rank-row .bar.negbar { background: var(--red); }
+  .rank-row .bar.posbar { background: var(--green); }
+  .rank-row .val { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-feature-settings: "tnum"; }
+
+  /* ---------- signals ---------- */
+  .signals { margin-top: 30px; }
+  .signal {
+    border: 1px solid var(--hairline-strong);
+    border-left: 3px solid var(--ink);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: var(--paper-2);
+  }
+  .signal.warn { border-left-color: var(--red); }
+  .signal.good { border-left-color: var(--green); }
+  .signal .s-head { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 5px; }
+  .signal .s-body { font-size: 12.5px; color: var(--ink-60); line-height: 1.55; }
+  .signal .s-body b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- heatmap & table section ---------- */
+  .section-2 { border-top: 1px solid var(--ink); padding: 34px 28px 10px; }
+  #heat { width: 100%; height: 460px; margin-top: 10px; }
+  .section-3 { padding: 20px 28px 60px; }
+  table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ink); }
+  th {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-60); text-align: right; padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--ink);
+    cursor: pointer; user-select: none;
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  th:hover { color: var(--ink); }
+  th.sorted { color: var(--ink); }
+  td {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-feature-settings: "tnum";
+    text-align: right; padding: 7px 12px;
+    border-bottom: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  tbody tr { transition: background .1s ease; }
+  tbody tr:hover { background: var(--paper-2); }
+  td.neg { color: var(--red); }
+  td.pos { color: var(--green); }
+  td.name { font-family: 'Archivo', sans-serif; font-weight: 500; }
+
+  footer {
+    border-top: 1px solid var(--ink);
+    padding: 26px 28px 34px;
+    display: flex; justify-content: space-between; gap: 30px; flex-wrap: wrap;
+  }
+  footer .f-col { max-width: 420px; }
+  footer p { font-size: 11.5px; color: var(--ink-60); line-height: 1.65; margin-top: 8px; }
+  footer .label { color: var(--ink); }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1180px) {
+    .shell { grid-template-columns: var(--rail-w) 1fr; }
+    .panel { grid-column: 1 / -1; position: static; max-height: none; border-left: none; border-top: 1px solid var(--hairline-strong); }
+  }
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    .rail { position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--hairline-strong); }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .kpi:nth-child(2) { border-right: none; }
+    .kpi:nth-child(1), .kpi:nth-child(2) { border-bottom: 1px solid var(--hairline-strong); }
+    .head-meta .src { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+    .live-dot { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="wordmark">MACROSCOPE</span>
+    <span class="issue">NO. 001 / GLOBAL MACRO TERMINAL</span>
+    <a class="sibling" href="ev.html">Current &rarr;</a>
+    <a class="sibling" href="ev-brands.html">Grid &rarr;</a>
+  </div>
+  <div class="head-meta">
+    <span class="live-badge"><span class="live-dot"></span>World Bank Open Data · 2000–2024</span>
+    <span class="src" id="retrieved"></span>
+  </div>
+</header>
+
+<div class="ticker"><div class="ticker-track" id="tickerTrack"></div></div>
+
+<div class="shell">
+
+  <!-- ============ LEFT RAIL ============ -->
+  <aside class="rail">
+    <div class="ctl-group">
+      <div class="ctl-head"><span class="label">Indicator</span></div>
+      <div id="indicatorList"></div>
+    </div>
+
+    <div class="ctl-group">
+      <div class="ctl-head">
+        <span class="label">Economies</span>
+        <span class="ctl-actions">
+          <button id="btnG7">G7</button>
+          <button id="btnAll">All</button>
+          <button id="btnClear">Clear</button>
+        </span>
+      </div>
+      <div id="countryList"></div>
+    </div>
+
+    <details>
+      <summary>Methodology</summary>
+      <p>All series are sourced from the World Bank Open Data API (indicators shown as WB codes) and cover 2000–2024, latest available vintage. Values are reproduced without adjustment. Inflation is the annual change in the consumer price index; unemployment is the ILO-modeled estimate as a share of the labor force. GDP and GDP per capita are in current US dollars.</p>
+      <p>This dashboard is a demonstration asset built entirely on public data.</p>
+    </details>
+  </aside>
+
+  <!-- ============ CENTER ============ -->
+  <main class="main">
+    <div class="fig-head">
+      <span class="fig-title"><b>FIG 01</b> — <span id="figTitle"></span> · 2000–2024</span>
+      <span class="label" id="figCode"></span>
+    </div>
+    <p class="fig-sub" id="figSub"></p>
+    <div id="chart"></div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="fig-head">
+      <span class="fig-title"><b>FIG 02</b> — Heat matrix · <span id="heatTitle"></span> · 2010–2024</span>
+    </div>
+    <div id="heat"></div>
+  </main>
+
+  <!-- ============ RIGHT PANEL ============ -->
+  <aside class="panel">
+    <div class="ctl-group">
+      <div class="ctl-head">
+        <span class="label">Rankings</span>
+        <span class="label" id="rankYear"></span>
+      </div>
+      <div class="rank-list" id="rankList"></div>
+      <p style="font-size:11px;color:var(--ink-35);margin-top:10px;">Click a row to set the focus economy for the KPI strip.</p>
+    </div>
+
+    <div class="signals">
+      <div class="ctl-head"><span class="label">Signals — Latest Vintage</span></div>
+      <div id="signalList" style="margin-top:12px;"></div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- ============ TABLE ============ -->
+<section class="section-3">
+  <div class="fig-head" style="margin-bottom:14px;">
+    <span class="fig-title"><b>TABLE 01</b> — Latest snapshot, all economies</span>
+    <span class="label">Click headers to sort</span>
+  </div>
+  <table id="snapTable">
+    <thead><tr id="snapHead"></tr></thead>
+    <tbody id="snapBody"></tbody>
+  </table>
+</section>
+
+<footer>
+  <div class="f-col">
+    <span class="label">Source</span>
+    <p>World Bank Open Data — free and open access to global development data. Series: NY.GDP.MKTP.KD.ZG, FP.CPI.TOTL.ZG, SL.UEM.TOTL.ZS, NY.GDP.PCAP.CD, NY.GDP.MKTP.CD, SP.POP.TOTL.</p>
+  </div>
+  <div class="f-col">
+    <span class="label">About this piece</span>
+    <p>MACROSCOPE is a portfolio dashboard template: one public dataset, six indicators, twenty-seven economies, zero proprietary data. Built to demonstrate analytical design — reproducible with any open data source.</p>
+  </div>
+  <div class="f-col">
+    <span class="label">Disclaimer</span>
+    <p>For demonstration purposes only. Not investment advice. Figures reflect the latest World Bank vintage at retrieval and may be revised by the source.</p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+/* ================= MACROSCOPE ================= */
+const D = MACRO_DATA;
+const YEARS = []; for (let y = 2000; y <= 2024; y++) YEARS.push(y);
+const HEAT_YEARS = YEARS.filter(y => y >= 2010);
+const IS_RATE = new Set(["gdp_growth", "inflation", "unemployment"]);
+const PALETTE = ["#0b0b0b","#0e7a34","#c2232f","#a86a08","#5b564e","#2f5d3a","#8c4a1f","#3d3d3d","#b0850a","#7a1f2b","#274e13","#6e3a10","#1f1f1f","#946b2d","#4a0e16","#847d70"];
+
+const state = {
+  indicator: "gdp_growth",
+  selected: ["USA","CHN","JPN","DEU","IND","WLD"],
+  focus: "USA",
+  sortKey: "gdp_usd",
+  sortDir: -1,
+};
+
+document.getElementById("retrieved").textContent = "RETRIEVED " + D.retrieved;
+
+/* ---------- helpers ---------- */
+const byGDP = Object.keys(D.countries).sort((a,b) => (latest(b,"gdp_usd")?.value ?? 0) - (latest(a,"gdp_usd")?.value ?? 0));
+
+function latest(iso, ind) {
+  const s = D.series[ind]?.[iso]; if (!s) return null;
+  const ys = Object.keys(s).map(Number).sort((a,b) => b - a);
+  return ys.length ? { year: ys[0], value: s[ys[0]] } : null;
+}
+function at(iso, ind, year) { return D.series[ind]?.[iso]?.[year] ?? null; }
+
+function compact(v) {
+  if (v == null) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e12) return (v/1e12).toFixed(2) + "T";
+  if (a >= 1e9)  return (v/1e9).toFixed(1) + "B";
+  if (a >= 1e6)  return (v/1e6).toFixed(1) + "M";
+  return v.toLocaleString();
+}
+function fmt(v, ind) {
+  if (v == null) return "—";
+  switch (ind) {
+    case "gdp_growth": case "inflation": return (v > 0 ? "+" : "") + v.toFixed(1) + "%";
+    case "unemployment": return v.toFixed(1) + "%";
+    case "gdp_per_capita": return "$" + Math.round(v).toLocaleString();
+    case "gdp_usd": return "$" + compact(v);
+    case "population": return compact(v);
+    default: return String(v);
+  }
+}
+const esc = s => String(s);
+
+/* ---------- left rail ---------- */
+function renderIndicators() {
+  const el = document.getElementById("indicatorList");
+  el.innerHTML = "";
+  Object.entries(D.indicators).forEach(([key, meta]) => {
+    const d = document.createElement("div");
+    d.className = "node" + (key === state.indicator ? " on" : "");
+    d.innerHTML = `<span class="ring"></span><span class="nm">${meta.label}</span><span class="cd">${meta.code}</span>`;
+    d.onclick = () => { state.indicator = key; renderAll(); };
+    el.appendChild(d);
+  });
+}
+function renderCountries() {
+  const el = document.getElementById("countryList");
+  el.innerHTML = "";
+  byGDP.forEach(iso => {
+    const on = state.selected.includes(iso);
+    const d = document.createElement("div");
+    d.className = "node" + (on ? " on" : "");
+    const sw = on ? `<span class="sw" style="background:${colorOf(iso)}"></span>` : "";
+    d.innerHTML = `<span class="ring"></span><span class="nm">${D.countries[iso]}</span><span class="cd">${iso}</span>${sw}`;
+    d.onclick = () => {
+      state.selected = on ? state.selected.filter(x => x !== iso) : [...state.selected, iso];
+      renderCountries(); renderChart();
+    };
+    el.appendChild(d);
+  });
+}
+function colorOf(iso) {
+  const i = state.selected.indexOf(iso);
+  return PALETTE[i % PALETTE.length];
+}
+document.getElementById("btnG7").onclick = () => { state.selected = ["USA","JPN","DEU","GBR","FRA","ITA","CAN"]; renderCountries(); renderChart(); };
+document.getElementById("btnAll").onclick = () => { state.selected = [...byGDP]; renderCountries(); renderChart(); };
+document.getElementById("btnClear").onclick = () => { state.selected = []; renderCountries(); renderChart(); };
+
+/* ---------- chart ---------- */
+const chart = echarts.init(document.getElementById("chart"));
+function renderChart() {
+  const ind = state.indicator, meta = D.indicators[ind];
+  const series = state.selected.map(iso => ({
+    name: D.countries[iso], type: "line",
+    data: YEARS.map(y => at(iso, ind, y)),
+    connectNulls: true, showSymbol: false, symbol: "circle", symbolSize: 5,
+    lineStyle: { width: iso === "WLD" ? 1.5 : 2, type: iso === "WLD" ? "dashed" : "solid" },
+    color: colorOf(iso),
+    emphasis: { focus: "series" },
+  }));
+  chart.setOption({
+    animationDuration: 400,
+    grid: { left: 58, right: 16, top: 26, bottom: 30 },
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "#0b0b0b", borderWidth: 0,
+      textStyle: { color: "#f2efeb", fontFamily: "JetBrains Mono", fontSize: 11 },
+      valueFormatter: v => fmt(v, ind),
+    },
+    legend: {
+      top: 0, left: 0, icon: "rect", itemWidth: 14, itemHeight: 3,
+      textStyle: { fontFamily: "JetBrains Mono", fontSize: 10, color: "#0b0b0b" },
+    },
+    xAxis: {
+      type: "category", data: YEARS, boundaryGap: false,
+      axisLine: { lineStyle: { color: "#0b0b0b" } },
+      axisTick: { show: false },
+      axisLabel: { fontFamily: "JetBrains Mono", fontSize: 10, color: "rgba(11,11,11,.6)", interval: 4 },
+    },
+    yAxis: {
+      type: "value",
+      splitLine: { lineStyle: { color: "#d8d2c6" } },
+      axisLabel: {
+        fontFamily: "JetBrains Mono", fontSize: 10, color: "rgba(11,11,11,.6)",
+        formatter: v => IS_RATE.has(ind) ? v + "%" : compact(v),
+      },
+    },
+    series,
+  }, true);
+  document.getElementById("figTitle").textContent = meta.label.toUpperCase();
+  document.getElementById("figCode").textContent = "WB:" + meta.code;
+  document.getElementById("figSub").textContent = `${meta.label} (${meta.unit}) for the selected economies. Toggle series in the left rail; the World aggregate is dashed.`;
+}
+window.addEventListener("resize", () => { chart.resize(); heat.resize(); });
+
+/* ---------- KPI strip ---------- */
+function renderKPIs() {
+  const el = document.getElementById("kpis");
+  const iso = state.focus;
+  const defs = ["gdp_growth","inflation","unemployment","gdp_per_capita"];
+  el.innerHTML = defs.map(k => {
+    const cur = latest(iso, k);
+    const prev = cur ? at(iso, k, cur.year - 1) : null;
+    let delta = "";
+    if (cur && prev != null) {
+      const d = cur.value - prev;
+      const good = k === "inflation" || k === "unemployment" ? d < 0 : d > 0;
+      delta = `<div class="k-delta ${good ? "pos" : "neg"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(k === "gdp_per_capita" ? 0 : 1)} vs ${cur.year - 1}</div>`;
+    }
+    return `<div class="kpi">
+      <div class="k-label"><span class="label">${D.indicators[k].label}</span><span class="k-country">${D.countries[iso]} · ${cur ? cur.year : "—"}</span></div>
+      <div class="k-val">${cur ? fmt(cur.value, k) : "—"}</div>
+      ${delta || '<div class="k-delta">&nbsp;</div>'}
+    </div>`;
+  }).join("");
+}
+
+/* ---------- rankings ---------- */
+function renderRanks() {
+  const ind = state.indicator;
+  const rows = byGDP
+    .map(iso => ({ iso, cur: latest(iso, ind) }))
+    .filter(r => r.cur)
+    .sort((a,b) => b.cur.value - a.cur.value);
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.cur.value)), 1e-9);
+  document.getElementById("rankYear").textContent = rows[0] ? "YR " + rows[0].cur.year : "";
+  const el = document.getElementById("rankList");
+  el.innerHTML = "";
+  rows.forEach((r, i) => {
+    const d = document.createElement("div");
+    d.className = "rank-row" + (r.iso === state.focus ? " focus" : "");
+    const pct = Math.max(3, Math.abs(r.cur.value) / maxAbs * 100);
+    const barCls = IS_RATE.has(ind) ? (r.cur.value < 0 ? "negbar" : "posbar") : "";
+    d.innerHTML = `<span class="idx">${String(i+1).padStart(2,"0")}</span>
+      <span class="nm" style="font-size:12.5px;">${D.countries[r.iso]}</span>
+      <span class="val">${fmt(r.cur.value, ind)}</span>
+      <div class="bar-wrap"><div class="bar ${barCls}" style="width:${pct}%"></div></div>`;
+    d.onclick = () => { state.focus = r.iso; renderKPIs(); renderRanks(); };
+    el.appendChild(d);
+  });
+}
+
+/* ---------- signals ---------- */
+function renderSignals() {
+  const pick = (ind, fn) => {
+    let best = null;
+    byGDP.forEach(iso => {
+      if (iso === "WLD") return;
+      const c = latest(iso, ind); if (!c) return;
+      if (!best || fn(c.value, best.cur.value)) best = { iso, cur: c };
+    });
+    return best;
+  };
+  const growth = pick("gdp_growth", (a,b) => a > b);
+  const infl   = pick("inflation", (a,b) => a > b);
+  const jobs   = pick("unemployment", (a,b) => a < b);
+  const big    = pick("gdp_usd", (a,b) => a > b);
+  const w = latest("WLD", "gdp_growth");
+  const cards = [
+    { cls: "good", head: `FASTEST EXPANSION · ${growth.cur.year}`, body: `<b>${D.countries[growth.iso]}</b> leads the coverage set at <b>${fmt(growth.cur.value,"gdp_growth")}</b> real GDP growth, versus <b>${fmt(w.value,"gdp_growth")}</b> for the world aggregate.` },
+    { cls: "warn", head: `HOTTEST INFLATION · ${infl.cur.year}`, body: `<b>${D.countries[infl.iso]}</b> posts the highest CPI inflation in the set at <b>${fmt(infl.cur.value,"inflation")}</b> — a reminder that price stability remains uneven across economies.` },
+    { cls: "", head: `TIGHTEST LABOR MARKET · ${jobs.cur.year}`, body: `<b>${D.countries[jobs.iso]}</b> records the lowest unemployment rate at <b>${fmt(jobs.cur.value,"unemployment")}</b> of the labor force (ILO-modeled estimate).` },
+    { cls: "", head: `LARGEST ECONOMY · ${big.cur.year}`, body: `<b>${D.countries[big.iso]}</b> remains the largest economy in current US dollars at <b>${fmt(big.cur.value,"gdp_usd")}</b>.` },
+  ];
+  document.getElementById("signalList").innerHTML = cards.map(c =>
+    `<div class="signal ${c.cls}"><div class="s-head">${c.head}</div><div class="s-body">${c.body}</div></div>`).join("");
+}
+
+/* ---------- heatmap ---------- */
+const heat = echarts.init(document.getElementById("heat"));
+function renderHeat() {
+  const ind = state.indicator;
+  const isos = byGDP;
+  const data = [];
+  let min = Infinity, max = -Infinity;
+  isos.forEach((iso, r) => {
+    HEAT_YEARS.forEach((y, c) => {
+      const v = at(iso, ind, y);
+      if (v != null) { data.push([c, r, v]); min = Math.min(min, v); max = Math.max(max, v); }
+    });
+  });
+  const rate = IS_RATE.has(ind);
+  // Robust bounds: clamp the color scale at the 90th percentile of |values|
+  // so outliers (e.g. triple-digit inflation) don't flatten every other cell.
+  const q = (arr, p) => { const s = [...arr].sort((a,b) => a-b); return s[Math.min(s.length-1, Math.floor(p*s.length))]; };
+  const absVals = data.map(d => Math.abs(d[2]));
+  const allVals = data.map(d => d[2]);
+  let visual;
+  if (rate) {
+    const bound = Math.max(1, q(absVals, 0.90));
+    // Semantic direction: growth high = good; inflation/unemployment high = stress.
+    const HIGH_IS_GOOD = ind === "gdp_growth";
+    const ramp = HIGH_IS_GOOD ? ["#c2232f", "#e3d9cd", "#0e7a34"] : ["#0e7a34", "#e3d9cd", "#c2232f"];
+    visual = { min: -bound, max: bound, inRange: { color: ramp } };
+  } else {
+    visual = { min: q(allVals, 0.02), max: q(allVals, 0.95), inRange: { color: ["#eae6df", "#c9c2b4", "#8d8578", "#0b0b0b"] } };
+  }
+  heat.setOption({
+    animationDuration: 300,
+    grid: { left: 110, right: 90, top: 8, bottom: 30 },
+    tooltip: {
+      backgroundColor: "#0b0b0b", borderWidth: 0,
+      textStyle: { color: "#f2efeb", fontFamily: "JetBrains Mono", fontSize: 11 },
+      formatter: p => `${D.countries[isos[p.value[1]]]} · ${HEAT_YEARS[p.value[0]]}<br>${D.indicators[ind].label}: <b>${fmt(p.value[2], ind)}</b>`,
+    },
+    xAxis: {
+      type: "category", data: HEAT_YEARS,
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { fontFamily: "JetBrains Mono", fontSize: 10, color: "rgba(11,11,11,.6)" },
+      splitArea: { show: false },
+    },
+    yAxis: {
+      type: "category", data: isos.map(i => D.countries[i]), inverse: true,
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { fontFamily: "JetBrains Mono", fontSize: 10, color: "#0b0b0b" },
+    },
+    visualMap: {
+      ...visual, type: "continuous", orient: "vertical", right: 0, top: "center",
+      textStyle: { fontFamily: "JetBrains Mono", fontSize: 9, color: "rgba(11,11,11,.6)" },
+      formatter: v => IS_RATE.has(ind) ? v.toFixed(0) + "%" : compact(v),
+      itemHeight: 180, calculable: false,
+    },
+    series: [{
+      type: "heatmap", data,
+      itemStyle: { borderColor: "#f2efeb", borderWidth: 1 },
+      emphasis: { itemStyle: { borderColor: "#0b0b0b", borderWidth: 1 } },
+    }],
+  }, true);
+  document.getElementById("heatTitle").textContent = D.indicators[ind].label.toUpperCase();
+}
+
+/* ---------- snapshot table ---------- */
+const COLS = [["name","Economy"],["gdp_growth","GDP growth"],["inflation","Inflation"],["unemployment","Unempl."],["gdp_per_capita","GDP / cap"],["gdp_usd","GDP"],["population","Population"]];
+function renderTable() {
+  const head = document.getElementById("snapHead");
+  head.innerHTML = COLS.map(([k, lbl]) =>
+    `<th class="${state.sortKey === k ? "sorted" : ""}" data-k="${k}">${lbl}${state.sortKey === k ? (state.sortDir < 0 ? " ↓" : " ↑") : ""}</th>`).join("");
+  head.querySelectorAll("th").forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    if (state.sortKey === k) state.sortDir *= -1; else { state.sortKey = k; state.sortDir = -1; }
+    renderTable();
+  });
+  const rows = byGDP.map(iso => {
+    const r = { iso };
+    COLS.forEach(([k]) => { if (k !== "name") r[k] = latest(iso, k)?.value ?? null; });
+    return r;
+  });
+  rows.sort((a,b) => {
+    if (state.sortKey === "name") return state.sortDir * D.countries[a.iso].localeCompare(D.countries[b.iso]);
+    return state.sortDir * ((a[state.sortKey] ?? -Infinity) - (b[state.sortKey] ?? -Infinity));
+  });
+  document.getElementById("snapBody").innerHTML = rows.map(r => {
+    const cell = k => {
+      const v = r[k];
+      const cls = IS_RATE.has(k) && v != null ? (v < 0 ? "neg" : "pos") : "";
+      return `<td class="${cls}">${v == null ? "—" : fmt(v, k)}</td>`;
+    };
+    return `<tr><td class="name">${D.countries[r.iso]}</td>${COLS.slice(1).map(([k]) => cell(k)).join("")}</tr>`;
+  }).join("");
+}
+
+/* ---------- ticker ---------- */
+function renderTicker() {
+  const majors = ["USA","CHN","JPN","DEU","IND","GBR","FRA","ITA","CAN","KOR","BRA","AUS"];
+  const items = [];
+  majors.forEach(iso => {
+    const g = latest(iso, "gdp_growth");
+    const i = latest(iso, "inflation");
+    if (g) items.push(`<span>${iso} GDP <b class="${g.value < 0 ? "dn" : "up"}">${fmt(g.value,"gdp_growth")}</b></span>`);
+    if (i) items.push(`<span>${iso} CPI <b class="${i.value < 0 ? "dn" : "up"}">${fmt(i.value,"inflation")}</b></span>`);
+  });
+  const half = items.join("");
+  document.getElementById("tickerTrack").innerHTML = half + half;
+}
+
+/* ---------- boot ---------- */
+function renderAll() {
+  renderIndicators(); renderCountries(); renderChart();
+  renderKPIs(); renderRanks(); renderSignals(); renderHeat(); renderTable();
+}
+renderTicker();
+renderAll();
+</script>
+<script src="ev-data.js"></script>
+<script src="oem-data.js"></script>
+<script src="assistant.js"></script>
+</body>
+</html>
