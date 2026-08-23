@@ -294,6 +294,10 @@
   footer p { font-size: 11.5px; color: var(--ink-60); line-height: 1.65; margin-top: 8px; }
   footer .label { color: var(--ink); }
 
+  /* ---------- latest snapshot ---------- */
+  #latestTable td { white-space: normal; min-width: 90px; }
+  #latestTable td.name { white-space: nowrap; }
+
   /* ---------- responsive ---------- */
   @media (max-width: 1180px) {
     .shell { grid-template-columns: var(--rail-w) 1fr; }
@@ -405,6 +409,18 @@
   <table id="snapTable">
     <thead><tr id="snapHead"></tr></thead>
     <tbody id="snapBody"></tbody>
+  </table>
+</section>
+
+<section class="section-3">
+  <div class="fig-head" style="margin-bottom:6px;">
+    <span class="fig-title"><b>FIG 03</b> — LATEST · H1 2026 SNAPSHOT</span>
+    <span class="label">Half-year · not comparable to annual series above</span>
+  </div>
+  <p class="fig-sub">Most recent EV sales by market, January–June 2026 (UK, Norway and US: Q1 only — H1 figures not yet published). Sources: CAAM, ACEA, Cox Automotive / Kelley Blue Book. Compiled <span class="mono" id="latestRetrieved"></span>.</p>
+  <table id="latestTable">
+    <thead><tr><th>Market</th><th>H1 2026</th><th>YoY</th><th>EV share</th><th>Signal</th></tr></thead>
+    <tbody id="latestBody"></tbody>
   </table>
 </section>
 
@@ -743,6 +759,23 @@ renderAll();
 </script>
 <script src="data.js"></script>
 <script src="oem-data.js"></script>
+<script src="latest-data.js"></script>
+<script>
+/* ---------- H1 2026 snapshot ---------- */
+(function () {
+  document.getElementById("latestRetrieved").textContent = LATEST_DATA.retrieved;
+  const fmtN = v => v == null ? "—" : (v >= 1e6 ? (v / 1e6).toFixed(2) + "M" : v.toLocaleString());
+  const fmtY = v => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(1) + "%";
+  document.getElementById("latestBody").innerHTML = LATEST_DATA.markets.map(r => `
+    <tr>
+      <td class="name">${r.name}</td>
+      <td>${fmtN(r.h1)}</td>
+      <td class="${r.yoy == null ? "" : (r.yoy < 0 ? "neg" : "pos")}">${fmtY(r.yoy)}</td>
+      <td style="font-size:11px;text-align:right;">${r.share ?? "—"}</td>
+      <td style="font-size:10px;color:var(--ink-60);text-align:right;">${r.note}</td>
+    </tr>`).join("");
+})();
+</script>
 <script src="assistant.js"></script>
 </body>
 </html>
