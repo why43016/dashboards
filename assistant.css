@@ -1,0 +1,116 @@
+/* ===== ASK THE TERMINAL — shared assistant chrome ===== */
+.ask-dock {
+  position: fixed; right: 22px; bottom: 22px; z-index: 200;
+  font-family: 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+.ask-tab {
+  display: inline-flex; align-items: center; gap: 9px;
+  background: var(--ink, #0b0b0b); color: var(--paper, #f2efeb);
+  border: 1px solid #0b0b0b;
+  padding: 10px 16px;
+  font-family: inherit; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity .15s ease;
+}
+.ask-tab:hover { opacity: .86; }
+.ask-tab .ask-dot { width: 7px; height: 7px; background: var(--term-green, #00ff41); animation: askpulse 1.6s ease-in-out infinite; }
+@keyframes askpulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+.ask-panel {
+  position: fixed; right: 22px; bottom: 22px; z-index: 201;
+  width: min(400px, 94vw);
+  height: min(560px, 82vh);
+  display: flex; flex-direction: column;
+  background: var(--paper, #f2efeb);
+  border: 1px solid #0b0b0b;
+  box-shadow: 8px 8px 0 rgba(11,11,11,.14);
+  transform: translateY(12px);
+  opacity: 0; pointer-events: none;
+  transition: transform .28s cubic-bezier(.22,1,.36,1), opacity .22s ease;
+  font-family: 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+.ask-panel.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+
+.ask-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #0b0b0b;
+}
+.ask-head .t { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.ask-head .sub { font-size: 9px; letter-spacing: .1em; color: rgba(11,11,11,.45); text-transform: uppercase; margin-top: 3px; }
+.ask-close {
+  background: none; border: 1px solid rgba(11,11,11,.25);
+  width: 26px; height: 26px; cursor: pointer;
+  font-family: inherit; font-size: 12px; color: #0b0b0b;
+  transition: background .12s ease;
+}
+.ask-close:hover { background: var(--paper-2, #eae6df); }
+
+.ask-log {
+  flex: 1; overflow-y: auto;
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.ask-msg { max-width: 92%; font-size: 12px; line-height: 1.6; }
+.ask-msg.user {
+  align-self: flex-end;
+  background: #0b0b0b; color: #f2efeb;
+  padding: 8px 12px;
+}
+.ask-msg.bot {
+  align-self: flex-start;
+  border-left: 3px solid #0b0b0b;
+  padding: 2px 0 2px 12px;
+  color: #0b0b0b;
+}
+.ask-msg.bot .src {
+  display: block; margin-top: 6px;
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(11,11,11,.4);
+}
+.ask-msg b { font-weight: 700; }
+.ask-msg .pos { color: var(--green, #0e7a34); font-weight: 700; }
+.ask-msg .neg { color: var(--red, #c2232f); font-weight: 700; }
+.ask-msg svg { display: block; margin-top: 8px; }
+.ask-msg .row { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.ask-msg .row + .row { border-top: 1px dashed rgba(11,11,11,.15); }
+
+.ask-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 0 14px 10px;
+}
+.ask-chip {
+  background: none;
+  border: 1px solid rgba(11,11,11,.3);
+  padding: 5px 9px;
+  font-family: inherit; font-size: 10px; color: #0b0b0b;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+  text-align: left;
+}
+.ask-chip:hover { background: #0b0b0b; color: #f2efeb; }
+
+.ask-inputrow {
+  display: flex; align-items: stretch;
+  border-top: 1px solid #0b0b0b;
+}
+.ask-inputrow input {
+  flex: 1; border: none; outline: none;
+  background: var(--paper, #f2efeb);
+  padding: 13px 14px;
+  font-family: inherit; font-size: 12px; color: #0b0b0b;
+}
+.ask-inputrow input::placeholder { color: rgba(11,11,11,.35); }
+.ask-send {
+  border: none; border-left: 1px solid #0b0b0b;
+  background: #0b0b0b; color: var(--term-green, #00ff41);
+  font-family: inherit; font-size: 11px; letter-spacing: .1em;
+  padding: 0 16px; cursor: pointer;
+  transition: opacity .12s ease;
+}
+.ask-send:hover { opacity: .85; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-panel { transition: none; }
+  .ask-tab .ask-dot { animation: none; }
+}
