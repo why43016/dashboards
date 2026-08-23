@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRID — EV OEM Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+  :root {
+    --paper: #f2efeb;
+    --paper-2: #eae6df;
+    --ink: #0b0b0b;
+    --ink-60: rgba(11,11,11,.60);
+    --ink-35: rgba(11,11,11,.35);
+    --hairline: #d8d2c6;
+    --hairline-strong: rgba(11,11,11,.22);
+    --green: #0e7a34;
+    --red: #c2232f;
+    --ochre: #a86a08;
+    --term-green: #00ff41;
+    --rail-w: 264px;
+    --panel-w: 340px;
+    --header-h: 52px;
+    --ticker-h: 34px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Archivo', -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--ink); color: var(--paper); }
+  .mono { font-family: 'JetBrains Mono', Menlo, Consolas, monospace; font-feature-settings: "tnum"; }
+  .label {
+    font-family: 'JetBrains Mono', Menlo, Consolas, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-60);
+  }
+
+  /* ---------- scrollbars ---------- */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--hairline-strong); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-60); }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    height: var(--header-h);
+    display: flex; align-items: stretch;
+    background: var(--paper);
+    border-bottom: 1px solid var(--ink);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 20px;
+    border-right: 1px solid var(--hairline-strong);
+  }
+  .brand .wordmark {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 15px; letter-spacing: .06em;
+  }
+  .sibling { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-35); text-decoration:none; margin-left:14px; }
+  .sibling:hover { color:var(--ink); }
+  .brand .issue { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-35); letter-spacing: .12em; }
+  .head-meta {
+    flex: 1;
+    display: flex; align-items: center; justify-content: flex-end; gap: 22px;
+    padding: 0 20px;
+  }
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-60);
+  }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .35; transform: scale(.8);} }
+  .head-meta .src { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .1em; color: var(--ink-35); text-transform: uppercase; }
+
+  /* ---------- ticker ---------- */
+  .ticker {
+    position: sticky; top: var(--header-h); z-index: 49;
+    height: var(--ticker-h);
+    background: var(--ink);
+    color: var(--term-green);
+    overflow: hidden;
+    display: flex; align-items: center;
+    border-bottom: 1px solid var(--ink);
+  }
+  .ticker-track {
+    display: flex; white-space: nowrap;
+    animation: tick 60s linear infinite;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .04em;
+    will-change: transform;
+  }
+  .ticker:hover .ticker-track { animation-play-state: paused; }
+  .ticker-track span { padding: 0 28px; position: relative; }
+  .ticker-track span::after { content: "·"; position: absolute; right: -4px; opacity: .35; }
+  .ticker .up { color: var(--term-green); }
+  .ticker .dn { color: #ff5d63; }
+  @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* ---------- layout ---------- */
+  .shell {
+    display: grid;
+    grid-template-columns: var(--rail-w) 1fr var(--panel-w);
+    gap: 0;
+    align-items: start;
+  }
+  .rail {
+    border-right: 1px solid var(--hairline-strong);
+    padding: 22px 20px 40px;
+    position: sticky;
+    top: calc(var(--header-h) + var(--ticker-h));
+    max-height: calc(100vh - var(--header-h) - var(--ticker-h));
+    overflow-y: auto;
+  }
+  .panel {
+    border-left: 1px solid var(--hairline-strong);
+    padding: 22px 20px 40px;
+    position: sticky;
+    top: calc(var(--header-h) + var(--ticker-h));
+    max-height: calc(100vh - var(--header-h) - var(--ticker-h));
+    overflow-y: auto;
+  }
+  .main { padding: 26px 28px 48px; min-width: 0; }
+
+  /* ---------- control nodes ---------- */
+  .ctl-group { margin-bottom: 30px; }
+  .ctl-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 8px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .ctl-actions { display: flex; gap: 10px; }
+  .ctl-actions button {
+    background: none; border: none; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-35); padding: 2px 0;
+    transition: color .15s ease;
+  }
+  .ctl-actions button:hover { color: var(--ink); }
+  .node {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 4px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--hairline);
+    transition: background .12s ease;
+  }
+  .node:hover { background: var(--paper-2); }
+  .node .ring {
+    width: 13px; height: 13px; flex: none;
+    border: 1px solid var(--ink-60);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    transition: border-color .15s ease;
+  }
+  .node .ring::after {
+    content: ""; width: 5px; height: 5px; border-radius: 50%;
+    background: transparent;
+    transition: background .15s ease;
+  }
+  .node.on .ring { border-color: var(--ink); }
+  .node.on .ring::after { background: var(--ink); }
+  .node .nm { font-size: 13px; flex: 1; }
+  .node .cd { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-35); letter-spacing: .06em; }
+  .node .sw { width: 9px; height: 9px; flex: none; }
+
+  /* collapsible */
+  details { border-top: 1px solid var(--hairline-strong); padding-top: 14px; margin-top: 6px; }
+  summary {
+    cursor: pointer; list-style: none;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-60);
+    display: flex; justify-content: space-between;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; }
+  details[open] summary::after { content: "–"; }
+  details p { font-size: 12px; color: var(--ink-60); margin-top: 10px; line-height: 1.6; }
+
+  /* ---------- main figure ---------- */
+  .fig-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .fig-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+  .fig-title b { font-weight: 700; }
+  .fig-sub { font-size: 13px; color: var(--ink-60); margin-bottom: 16px; }
+  #chart { width: 100%; height: 430px; border-top: 1px solid var(--ink); }
+
+  /* ---------- KPI strip ---------- */
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--ink);
+    border-top: none;
+    margin-bottom: 34px;
+  }
+  .kpi {
+    padding: 16px 18px 14px;
+    border-right: 1px solid var(--hairline-strong);
+    min-width: 0;
+  }
+  .kpi:last-child { border-right: none; }
+  .kpi .k-label { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .kpi .k-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px; font-weight: 500; letter-spacing: -.02em;
+    font-feature-settings: "tnum";
+    line-height: 1.05;
+    white-space: nowrap;
+  }
+  .kpi .k-delta { font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 6px; }
+  .kpi .pos { color: var(--green); }
+  .kpi .neg { color: var(--red); }
+  .kpi .k-country { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-35); letter-spacing: .14em; text-transform: uppercase; }
+
+  /* ---------- rankings ---------- */
+  .rank-list { border-top: 1px solid var(--ink); }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    align-items: center; gap: 10px;
+    padding: 7px 4px;
+    border-bottom: 1px solid var(--hairline);
+    cursor: pointer;
+    transition: background .12s ease;
+  }
+  .rank-row:hover { background: var(--paper-2); }
+  .rank-row.focus { background: var(--ink); color: var(--paper); }
+  .rank-row.focus .label, .rank-row.focus .mono { color: var(--paper); }
+  .rank-row .idx { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-35); }
+  .rank-row.focus .idx { color: rgba(242,239,235,.5); }
+  .rank-row .bar-wrap { grid-column: 1 / -1; height: 4px; background: var(--hairline); margin-top: 2px; }
+  .rank-row .bar { height: 100%; background: var(--ink); transition: width .4s cubic-bezier(.22,1,.36,1); }
+  .rank-row .bar.negbar { background: var(--red); }
+  .rank-row .bar.posbar { background: var(--green); }
+  .rank-row .val { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-feature-settings: "tnum"; }
+
+  /* ---------- signals ---------- */
+  .signals { margin-top: 30px; }
+  .signal {
+    border: 1px solid var(--hairline-strong);
+    border-left: 3px solid var(--ink);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: var(--paper-2);
+  }
+  .signal.warn { border-left-color: var(--red); }
+  .signal.good { border-left-color: var(--green); }
+  .signal .s-head { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 5px; }
+  .signal .s-body { font-size: 12.5px; color: var(--ink-60); line-height: 1.55; }
+  .signal .s-body b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- heatmap & table section ---------- */
+  .section-2 { border-top: 1px solid var(--ink); padding: 34px 28px 10px; }
+  #heat { width: 100%; height: 460px; margin-top: 10px; }
+  .section-3 { padding: 20px 28px 60px; }
+  table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ink); }
+  th {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-60); text-align: right; padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--ink);
+    cursor: pointer; user-select: none;
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  th:hover { color: var(--ink); }
+  th.sorted { color: var(--ink); }
+  td {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-feature-settings: "tnum";
+    text-align: right; padding: 7px 12px;
+    border-bottom: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  tbody tr { transition: background .1s ease; }
+  tbody tr:hover { background: var(--paper-2); }
+  td.neg { color: var(--red); }
+  td.pos { color: var(--green); }
+  td.name { font-family: 'Archivo', sans-serif; font-weight: 500; }
+
+  footer {
+    border-top: 1px solid var(--ink);
+    padding: 26px 28px 34px;
+    display: flex; justify-content: space-between; gap: 30px; flex-wrap: wrap;
+  }
+  footer .f-col { max-width: 420px; }
+  footer p { font-size: 11.5px; color: var(--ink-60); line-height: 1.65; margin-top: 8px; }
+  footer .label { color: var(--ink); }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1180px) {
+    .shell { grid-template-columns: var(--rail-w) 1fr; }
+    .panel { grid-column: 1 / -1; position: static; max-height: none; border-left: none; border-top: 1px solid var(--hairline-strong); }
+  }
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    .rail { position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--hairline-strong); }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .kpi:nth-child(2) { border-right: none; }
+    .kpi:nth-child(1), .kpi:nth-child(2) { border-bottom: 1px solid var(--hairline-strong); }
+    .head-meta .src { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+    .live-dot { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+<style>
+  .sibling { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-35); text-decoration:none; margin-left:14px; }
+  .sibling:hover { color:var(--ink); }
+</style>
+<link rel="stylesheet" href="assistant.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="wordmark">GRID</span>
+    <span class="issue">NO. 003 / EV OEM TERMINAL</span>
+    <a class="sibling" href="index.html">&larr; Macroscope</a>
+    <a class="sibling" href="ev.html">&larr; Current</a>
+  </div>
+  <div class="head-meta">
+    <span class="live-badge"><span class="live-dot"></span>Company-reported sales · 2021–2025</span>
+    <span class="src" id="retrieved"></span>
+  </div>
+</header>
+
+<div class="ticker"><div class="ticker-track" id="tickerTrack"></div></div>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="ctl-group">
+      <div class="ctl-head"><span class="label">Indicator</span></div>
+      <div id="indicatorList"></div>
+    </div>
+
+    <div class="ctl-group">
+      <div class="ctl-head"><span class="label">Manufacturers</span></div>
+      <div id="makerList"></div>
+    </div>
+
+    <details>
+      <summary>Methodology</summary>
+      <p><b>Definitions differ by manufacturer and are labeled per row.</b> Tesla reports global deliveries (all BEV). BYD reports passenger-car sales split into BEV and PHEV. Volkswagen Group, BMW Group and Mercedes-Benz report BEV deliveries/sales. Mercedes-Benz is shown from 2023 due to a reporting-scope change (Cars division, incl. smart).</p>
+      <p>Sources: company annual reports and sales releases (BYD, Tesla, Volkswagen AG, BMW AG, Mercedes-Benz AG), compiled from public reporting. "Share of world plugin market" divides each series by global plugin-vehicle sales (BEV+PHEV) from the IEA Global EV Outlook via Our World in Data — an approximation, since the Tesla/VW/BMW/Mercedes series exclude PHEVs.</p>
+      <p>Figures are reproduced without adjustment; company delivery and registration bases are not identical.</p>
+    </details>
+  </aside>
+
+  <main class="main">
+    <div class="fig-head">
+      <span class="fig-title"><b>FIG 01</b> — <span id="figTitle"></span> · 2021–2025</span>
+      <span class="label" id="figCode"></span>
+    </div>
+    <p class="fig-sub" id="figSub"></p>
+    <div id="chart"></div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="fig-head">
+      <span class="fig-title"><b>FIG 02</b> — Heat matrix · <span id="heatTitle"></span> · 2021–2025</span>
+    </div>
+    <div id="heat"></div>
+  </main>
+
+  <aside class="panel">
+    <div class="ctl-group">
+      <div class="ctl-head">
+        <span class="label">Rankings</span>
+        <span class="label" id="rankYear"></span>
+      </div>
+      <div class="rank-list" id="rankList"></div>
+      <p style="font-size:11px;color:var(--ink-35);margin-top:10px;">Click a row to set the focus manufacturer for the KPI strip.</p>
+    </div>
+
+    <div class="signals">
+      <div class="ctl-head"><span class="label">Signals — 2025 Vintage</span></div>
+      <div id="signalList" style="margin-top:12px;"></div>
+    </div>
+  </aside>
+
+</div>
+
+<section class="section-3">
+  <div class="fig-head" style="margin-bottom:14px;">
+    <span class="fig-title"><b>TABLE 01</b> — Annual sales by manufacturer, 2021–2025</span>
+    <span class="label">Units as reported · scope per row</span>
+  </div>
+  <table id="snapTable">
+    <thead><tr id="snapHead"></tr></thead>
+    <tbody id="snapBody"></tbody>
+  </table>
+</section>
+
+<footer>
+  <div class="f-col">
+    <span class="label">Source</span>
+    <p>Company annual reports and sales releases: Tesla, BYD, Volkswagen Group (Annual Report 2025), BMW Group, Mercedes-Benz. Global plugin totals: IEA Global EV Outlook via Our World in Data (CC-BY). Compiled August 2026.</p>
+  </div>
+  <div class="f-col">
+    <span class="label">About this piece</span>
+    <p>GRID is the third issue in a series of public-data dashboard terminals. OEM-level EV figures are compiled by hand from primary disclosures, with reporting scope labeled per series — the context most leaderboard charts omit.</p>
+  </div>
+  <div class="f-col">
+    <span class="label">Disclaimer</span>
+    <p>For demonstration purposes only. Not investment advice. Figures may be revised by the companies; delivery, wholesale, and registration bases differ between sources.</p>
+  </div>
+</footer>
+
+<script src="oem-data.js"></script>
+<script>
+/* ================= GRID — EV OEM TERMINAL ================= */
+const D = OEM_DATA;
+const YEARS = [2021, 2022, 2023, 2024, 2025];
+const KEYS = Object.keys(D.makers);
+const PALETTE = ["#0b0b0b","#0e7a34","#c2232f","#a86a08","#5b564e","#2f5d3a","#8c4a1f","#3d3d3d"];
+
+const INDICATORS = {
+  sales:  { label: "Annual sales", unit: "units as reported" },
+  growth: { label: "Sales growth", unit: "% YoY · derived" },
+  share:  { label: "Share of world plugin market", unit: "% · approx., derived" },
+};
+
+const state = { indicator: "sales", focus: "BYD_BEV", sortKey: "y2025", sortDir: -1 };
+document.getElementById("retrieved").textContent = "RETRIEVED " + D.retrieved;
+
+/* ---------- data access ---------- */
+function val(key, ind, year) {
+  const s = D.sales[key]?.[String(year)];
+  if (s == null) return null;
+  if (ind === "sales") return s;
+  if (ind === "growth") {
+    const p = D.sales[key]?.[String(year - 1)];
+    return p ? (s / p - 1) * 100 : null;
+  }
+  if (ind === "share") {
+    const w = D.world_plugin_sales[String(year)];
+    return w ? s / w * 100 : null;
+  }
+}
+function latest(key, ind) {
+  for (let y = 2025; y >= 2021; y--) {
+    const v = val(key, ind, y);
+    if (v != null) return { year: y, value: v };
+  }
+  return null;
+}
+function compact(v) {
+  if (v == null) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e6) return (v/1e6).toFixed(2) + "M";
+  if (a >= 1e4) return (v/1e3).toFixed(0) + "K";
+  return v.toLocaleString();
+}
+function fmt(v, ind) {
+  if (v == null) return "—";
+  if (ind === "sales") return compact(v);
+  if (ind === "growth") return (v > 0 ? "+" : "") + v.toFixed(1) + "%";
+  return v.toFixed(1) + "%";
+}
+const bySize = KEYS.slice().sort((a,b) => (latest(b,"sales")?.value ?? 0) - (latest(a,"sales")?.value ?? 0));
+
+/* ---------- rails ---------- */
+function renderIndicators() {
+  const el = document.getElementById("indicatorList");
+  el.innerHTML = "";
+  Object.entries(INDICATORS).forEach(([key, meta]) => {
+    const d = document.createElement("div");
+    d.className = "node" + (key === state.indicator ? " on" : "");
+    d.innerHTML = `<span class="ring"></span><span class="nm">${meta.label}</span><span class="cd">${meta.unit}</span>`;
+    d.onclick = () => { state.indicator = key; renderAll(); };
+    el.appendChild(d);
+  });
+}
+const colorOf = k => PALETTE[bySize.indexOf(k) % PALETTE.length];
+
+/* ---------- chart ---------- */
+const chart = echarts.init(document.getElementById("chart"));
+const FIG_SUBS = {
+  sales: "Annual EV sales as reported by each manufacturer — note the scope label on every series (BEV vs PHEV, deliveries vs sales).",
+  growth: "Year-over-year growth of each reported series. Mercedes-Benz enters in 2024 due to a reporting-scope change.",
+  share: "Each series as a share of global plugin-vehicle (BEV+PHEV) sales — approximate: BEV-only series are measured against the full plugin market.",
+};
+function renderChart() {
+  const ind = state.indicator;
+  const series = bySize.map(key => ({
+    name: D.makers[key].name, type: "line",
+    data: YEARS.map(y => { const v = val(key, ind, y); return v == null ? null : +v.toFixed(2); }),
+    connectNulls: true, showSymbol: true, symbol: "circle", symbolSize: 6,
+    lineStyle: { width: key.includes("PHEV") ? 1.5 : 2.5, type: key.includes("PHEV") ? "dashed" : "solid" },
+    color: colorOf(key),
+    emphasis: { focus: "series" },
+  }));
+  chart.setOption({
+    animationDuration: 400,
+    grid: { left: 64, right: 16, top: 26, bottom: 30 },
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "#0b0b0b", borderWidth: 0,
+      textStyle: { color: "#f2efeb", fontFamily: "JetBrains Mono", fontSize: 11 },
+      valueFormatter: v => fmt(v, ind),
+    },
+    legend: {
+      top: 0, left: 0, icon: "rect", itemWidth: 14, itemHeight: 3, itemGap: 16,
+      textStyle: { fontFamily: "JetBrains Mono", fontSize: 10, color: "#0b0b0b" },
+    },
+    xAxis: {
+      type: "category", data: YEARS, boundaryGap: false,
+      axisLine: { lineStyle: { color: "#0b0b0b" } },
+      axisTick: { show: false },
+      axisLabel: { fontFamily: "JetBrains Mono", fontSize: 10, color: "rgba(11,11,11,.6)" },
+    },
+    yAxis: {
+      type: "value",
+      splitLine: { lineStyle: { color: "#d8d2c6" } },
+      axisLabel: {
+        fontFamily: "JetBrains Mono", fontSize: 10, color: "rgba(11,11,11,.6)",
+        formatter: v => ind === "sales" ? compact(v) : v + "%",
+      },
+    },
+    series,
+  }, true);
+  document.getElementById("figTitle").textContent = INDICATORS[ind].label.toUpperCase();
+  document.getElementById("figCode").textContent = INDICATORS[ind].unit.toUpperCase();
+  document.getElementById("figSub").textContent = FIG_SUBS[ind];
+}
+window.addEventListener("resize", () => { chart.resize(); heat.resize(); });
+
+/* ---------- KPI strip ---------- */
+function renderKPIs() {
+  const k = state.focus;
+  const s = D.sales[k];
+  const y25 = s["2025"], y24 = s["2024"];
+  const yoy = y24 ? (y25 / y24 - 1) * 100 : null;
+  const share = val(k, "share", 2025);
+  const cum = YEARS.reduce((t, y) => t + (s[String(y)] ?? 0), 0);
+  const cards = [
+    { label: "Sales · 2025", v: compact(y25), d: yoy != null ? { txt: `${yoy > 0 ? "▲" : "▼"} ${Math.abs(yoy).toFixed(1)}% vs 2024`, good: yoy > 0 } : null },
+    { label: "Share of world plugin · 2025", v: share != null ? share.toFixed(1) + "%" : "—", d: { txt: "approx. — see methodology", good: null } },
+    { label: "Cumulative 2021–25", v: compact(cum), d: null },
+    { label: "Reporting scope", v: null, scope: D.makers[k].scope },
+  ];
+  document.getElementById("kpis").innerHTML = cards.map(c => `
+    <div class="kpi">
+      <div class="k-label"><span class="label">${c.label}</span><span class="k-country">${D.makers[k].name}</span></div>
+      <div class="k-val" style="${c.scope ? 'font-size:13px;letter-spacing:0;line-height:1.4;padding-top:4px;' : ''}">${c.scope ?? c.v}</div>
+      ${c.d ? `<div class="k-delta ${c.d.good === null ? "" : (c.d.good ? "pos" : "neg")}">${c.d.txt}</div>` : '<div class="k-delta">&nbsp;</div>'}
+    </div>`).join("");
+}
+
+/* ---------- rankings ---------- */
+function renderRanks() {
+  const ind = state.indicator;
+  const rows = bySize
+    .map(k => ({ k, cur: latest(k, ind) }))
+    .filter(r => r.cur)
+    .sort((a,b) => b.cur.value - a.cur.value);
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.cur.value)), 1e-9);
+  document.getElementById("rankYear").textContent = rows[0] ? "YR " + rows[0].cur.year : "";
+  const el = document.getElementById("rankList");
+  el.innerHTML = "";
+  rows.forEach((r, i) => {
+    const d = document.createElement("div");
+    d.className = "rank-row" + (r.k === state.focus ? " focus" : "");
+    const pct = Math.max(3, Math.abs(r.cur.value) / maxAbs * 100);
+    const barCls = ind === "growth" ? (r.cur.value < 0 ? "negbar" : "posbar") : "";
+    d.innerHTML = `<span class="idx">${String(i+1).padStart(2,"0")}</span>
+      <span class="nm" style="font-size:12.5px;">${D.makers[r.k].name}</span>
+      <span class="val">${fmt(r.cur.value, ind)}</span>
+      <div class="bar-wrap"><div class="bar ${barCls}" style="width:${pct}%"></div></div>`;
+    d.onclick = () => { state.focus = r.k; renderKPIs(); renderRanks(); };
+    el.appendChild(d);
+  });
+}
+
+/* ---------- signals ---------- */
+function renderSignals() {
+  const cards = [
+    { cls: "", head: "NEW NO. 1 IN BEV · 2025", body: `<b>BYD</b> sold <b>2.26M</b> pure electric cars — overtaking <b>Tesla (1.64M)</b> for the annual global BEV crown for the first time. Tesla's deliveries fell for a second consecutive year, <b>−8.6%</b> from their 2023 peak of 1.81M.` },
+    { cls: "good", head: "LEGACY COMEBACK · 2025", body: `<b>Volkswagen Group</b> grew BEV deliveries <b>+32%</b> to <b>983K</b>, powered by a +66% surge in Europe — the strongest rebound among legacy manufacturers.` },
+    { cls: "warn", head: "PREMIUM DIVERGENCE · 2025", body: `<b>BMW Group (442K, +3.6%)</b> now sells roughly <b>2.6×</b> the BEVs of <b>Mercedes-Benz (169K, −9%)</b> — a gap that was near parity in 2023 (376K vs 223K).` },
+    { cls: "warn", head: "BYD'S PIVOT · 2025", body: `BYD's plug-in hybrids <b>fell −7.9%</b> to 2.29M while its BEVs grew <b>+27.9%</b> — the portfolio is tilting pure electric as China's PHEV boom cools.` },
+  ];
+  document.getElementById("signalList").innerHTML = cards.map(c =>
+    `<div class="signal ${c.cls}"><div class="s-head">${c.head}</div><div class="s-body">${c.body}</div></div>`).join("");
+}
+
+/* ---------- heatmap ---------- */
+const heat = echarts.init(document.getElementById("heat"));
+function renderHeat() {
+  const ind = state.indicator;
+  const isos = bySize;
+  const data = [];
+  isos.forEach((k, r) => {
+    YEARS.forEach((y, c) => {
+      const v = val(k, ind, y);
+      if (v != null) data.push([c, r, +v.toFixed(2)]);
+    });
+  });
+  const allVals = data.map(d => d[2]);
+  let visual;
+  if (ind === "growth") {
+    const bound = Math.max(20, Math.max(...allVals.map(Math.abs)));
+    visual = { min: -bound, max: bound, inRange: { color: ["#c2232f", "#e3d9cd", "#0e7a34"] } };
+  } else {
+    visual = { min: Math.min(...allVals), max: Math.max(...allVals), inRange: { color: ["#eae6df", "#d5dccb", "#a9bda0", "#5d8f66", "#0e7a34"] } };
+  }
+  heat.setOption({
+    animationDuration: 300,
+    grid: { left: 150, right: 90, top: 8, bottom: 30 },
+    tooltip: {
+      backgroundColor: "#0b0b0b", borderWidth: 0,
+      textStyle: { color: "#f2efeb", fontFamily: "JetBrains Mono", fontSize: 11 },
+      formatter: p => `${D.makers[isos[p.value[1]]].name} · ${YEARS[p.value[0]]}<br>${INDICATORS[ind].label}: <b>${fmt(p.value[2], ind)}</b>`,
+    },
+    xAxis: {
+      type: "category", data: YEARS,
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { fontFamily: "JetBrains Mono", fontSize: 10, color: "rgba(11,11,11,.6)" },
+    },
+    yAxis: {
+      type: "category", data: isos.map(k => D.makers[k].name), inverse: true,
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { fontFamily: "JetBrains Mono", fontSize: 10, color: "#0b0b0b" },
+    },
+    visualMap: {
+      ...visual, type: "continuous", orient: "vertical", right: 0, top: "center",
+      textStyle: { fontFamily: "JetBrains Mono", fontSize: 9, color: "rgba(11,11,11,.6)" },
+      formatter: v => ind === "sales" ? compact(v) : v.toFixed(0) + "%",
+      itemHeight: 120, calculable: false,
+    },
+    series: [{
+      type: "heatmap", data,
+      itemStyle: { borderColor: "#f2efeb", borderWidth: 1 },
+      emphasis: { itemStyle: { borderColor: "#0b0b0b", borderWidth: 1 } },
+    }],
+  }, true);
+  document.getElementById("heatTitle").textContent = INDICATORS[ind].label.toUpperCase();
+}
+
+/* ---------- table ---------- */
+function renderTable() {
+  const cols = [["name","Manufacturer"],["scope","Scope"],...YEARS.map(y => ["y"+y, String(y)]),["yoy","YoY 25"]];
+  const head = document.getElementById("snapHead");
+  head.innerHTML = cols.map(([k, lbl]) =>
+    `<th class="${state.sortKey === k ? "sorted" : ""}" data-k="${k}">${lbl}${state.sortKey === k ? (state.sortDir < 0 ? " ↓" : " ↑") : ""}</th>`).join("");
+  head.querySelectorAll("th").forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    if (state.sortKey === k) state.sortDir *= -1; else { state.sortKey = k; state.sortDir = -1; }
+    renderTable();
+  });
+  const rows = bySize.map(k => {
+    const r = { k };
+    YEARS.forEach(y => r["y"+y] = D.sales[k][String(y)] ?? null);
+    r.yoy = (r.y2025 != null && r.y2024) ? (r.y2025 / r.y2024 - 1) * 100 : null;
+    return r;
+  });
+  rows.sort((a,b) => {
+    if (state.sortKey === "name") return state.sortDir * D.makers[a.k].name.localeCompare(D.makers[b.k].name);
+    if (state.sortKey === "scope") return state.sortDir * D.makers[a.k].scope.localeCompare(D.makers[b.k].scope);
+    return state.sortDir * ((a[state.sortKey] ?? -Infinity) - (b[state.sortKey] ?? -Infinity));
+  });
+  document.getElementById("snapBody").innerHTML = rows.map(r => `
+    <tr>
+      <td class="name">${D.makers[r.k].name}</td>
+      <td style="font-size:10px;color:var(--ink-60);text-align:right;">${D.makers[r.k].scope}</td>
+      ${YEARS.map(y => `<td>${r["y"+y] == null ? "—" : r["y"+y].toLocaleString()}</td>`).join("")}
+      <td class="${r.yoy == null ? "" : (r.yoy < 0 ? "neg" : "pos")}">${r.yoy == null ? "—" : (r.yoy > 0 ? "+" : "") + r.yoy.toFixed(1) + "%"}</td>
+    </tr>`).join("");
+}
+
+/* ---------- ticker ---------- */
+function renderTicker() {
+  const items = [];
+  bySize.forEach(k => {
+    const s = D.sales[k]["2025"], p = D.sales[k]["2024"];
+    if (s != null) {
+      const yoy = p ? (s / p - 1) * 100 : null;
+      items.push(`<span>${D.makers[k].name.toUpperCase()} ${compact(s)} <b class="${yoy != null && yoy < 0 ? "dn" : "up"}">${yoy == null ? "" : (yoy > 0 ? "+" : "") + yoy.toFixed(1) + "%"}</b></span>`);
+    }
+  });
+  const half = items.join("");
+  document.getElementById("tickerTrack").innerHTML = half + half;
+}
+
+/* ---------- boot ---------- */
+function renderAll() {
+  renderIndicators(); renderChart();
+  renderKPIs(); renderRanks(); renderSignals(); renderHeat(); renderTable();
+}
+renderTicker();
+renderAll();
+</script>
+<script src="data.js"></script>
+<script src="ev-data.js"></script>
+<script src="assistant.js"></script>
+</body>
+</html>
