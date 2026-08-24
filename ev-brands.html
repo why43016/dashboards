@@ -264,6 +264,7 @@
   .section-2 { border-top: 1px solid var(--ink); padding: 34px 28px 10px; }
   #heat { width: 100%; height: 460px; margin-top: 10px; }
   .section-3 { padding: 20px 28px 60px; }
+  .section-top { padding: 26px 28px 30px; border-bottom: 1px solid var(--ink); }
   table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ink); }
   th {
     font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
@@ -342,6 +343,18 @@
 
 <div class="ticker"><div class="ticker-track" id="tickerTrack"></div></div>
 
+<section class="section-3 section-top">
+  <div class="fig-head" style="margin-bottom:6px;">
+    <span class="fig-title"><b>FIG 00</b> — LATEST · H1 2026 SNAPSHOT</span>
+    <span class="label">Half-year · not comparable to annual series below</span>
+  </div>
+  <p class="fig-sub">Most recent reported EV sales by manufacturer, January–June 2026. Sources: company delivery/sales reports (Tesla, BYD, Volkswagen Group, BMW Group, Mercedes-Benz). Compiled <span class="mono" id="latestRetrieved"></span>.</p>
+  <table id="latestTable">
+    <thead><tr><th>Manufacturer</th><th>H1 2026</th><th>YoY</th><th>Scope</th><th>Signal</th></tr></thead>
+    <tbody id="latestBody"></tbody>
+  </table>
+</section>
+
 <div class="shell">
 
   <aside class="rail">
@@ -405,18 +418,6 @@
   <table id="snapTable">
     <thead><tr id="snapHead"></tr></thead>
     <tbody id="snapBody"></tbody>
-  </table>
-</section>
-
-<section class="section-3">
-  <div class="fig-head" style="margin-bottom:6px;">
-    <span class="fig-title"><b>FIG 03</b> — LATEST · H1 2026 SNAPSHOT</span>
-    <span class="label">Half-year · not comparable to annual series above</span>
-  </div>
-  <p class="fig-sub">Most recent reported EV sales by manufacturer, January–June 2026. Sources: company delivery/sales reports (Tesla, BYD, Volkswagen Group, BMW Group, Mercedes-Benz). Compiled <span class="mono" id="latestRetrieved"></span>.</p>
-  <table id="latestTable">
-    <thead><tr><th>Manufacturer</th><th>H1 2026</th><th>YoY</th><th>Scope</th><th>Signal</th></tr></thead>
-    <tbody id="latestBody"></tbody>
   </table>
 </section>
 
